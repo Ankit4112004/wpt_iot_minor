@@ -8,21 +8,23 @@ from sqlalchemy import select, delete, func
 import config
 import replay
 from db import SessionLocal, Reading, Prediction, Alert
-from inference import run_inference
+from inference import run_inference, HeatState
 
 _last_live_ts = 0.0
 _last_feed_time = None
 _alert_cooldown = {"over_temp": 0.0, "anomaly": 0.0}
 _ALERT_GAP = 20.0
 
-_charge_start_ts = None
+# Exponentially filtered I^2 heat state, carried across ticks of the same source
+_heat = HeatState()
+_heat_source = None
+_heat_last_ts = None
 _tick_lock = threading.Lock()
 _refresh_lock = threading.Lock()
 _last_refresh_request = 0.0
 
 def _fetch_thingspeak():
-    
-    global _charge_start_ts
+
     if not (config.THINGSPEAK_CHANNEL and config.THINGSPEAK_READ_KEY):
         return None
     try:
@@ -32,22 +34,14 @@ def _fetch_thingspeak():
         voltage = float(feed.get("field3") or 0)
         current = float(feed.get("field2") or 0)
         soc = float(feed.get("field4") or 0)
-        
-        if current >= 0:
-            _charge_start_ts = None
-            time_in_cycle = 0.0
-        else:
-            now = time.time()
-            if _charge_start_ts is None:
-                _charge_start_ts = now
-            time_in_cycle = now - _charge_start_ts
 
         reading = {
             "voltage": voltage,
             "current": current,
             "power": float(feed.get("field1") or voltage * current),
             "soc": soc,
-            "time_in_cycle": time_in_cycle,
+            "dt": None,
+            "new_cycle": False,
         }
         return reading, feed.get("created_at")
     except Exception:
@@ -84,18 +78,30 @@ def _maybe_alert(session, reading, pred):
                           value=pred["anomaly_score"]))
         _alert_cooldown["anomaly"] = now
 
+def _cell_features(reading, source):
+
+    global _heat, _heat_source, _heat_last_ts
+    # Simscape convention: negative pack current = charging. NASA charge current is positive.
+    i_cell = max(0.0, -reading["current"] * config.CELL_CAPACITY_AH / config.PACK_CAPACITY_AH)
+
+    now = time.time()
+    if source != _heat_source or reading["new_cycle"]:
+        _heat, _heat_source, _heat_last_ts = HeatState(), source, None
+    if reading["dt"] is not None:
+        dt = reading["dt"]
+    else:
+        dt = 0.0 if _heat_last_ts is None else now - _heat_last_ts
+    _heat_last_ts = now
+    heat_fast, heat_slow = _heat.update(i_cell, min(dt, config.MAX_GAP_SECONDS))
+    return i_cell, heat_fast, heat_slow
+
 def _tick_once():
-    
+
     resolved = _resolve_source()
     if resolved is None:
         return
     reading_dict, source = resolved
-
-    if source == "live":
-        infer_v = reading_dict["voltage"] / config.CELLS_IN_SERIES
-        infer_i = reading_dict["current"] / config.CELLS_IN_PARALLEL
-    else:
-        infer_v, infer_i = reading_dict["voltage"], reading_dict["current"]
+    i_cell, heat_fast, heat_slow = _cell_features(reading_dict, source)
 
     session = SessionLocal()
     try:
@@ -105,7 +111,7 @@ def _tick_once():
         session.add(r)
         session.flush()
 
-        pred = run_inference(infer_v, infer_i, reading_dict["time_in_cycle"])
+        pred = run_inference(i_cell, config.AMBIENT_C, heat_fast, heat_slow)
         session.add(Prediction(reading_id=r.id, **pred))
         _maybe_alert(session, r, pred)
 

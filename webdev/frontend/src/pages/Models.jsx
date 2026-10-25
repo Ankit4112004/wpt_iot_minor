@@ -1,20 +1,20 @@
 const MODELS = [
   {
     name: "Temperature Soft-Sensor",
-    type: "Supervised regression · Random Forest",
+    type: "Supervised regression · Physics-constrained gradient boosting",
     accent: "#ef4444",
-    metric: "R² 0.98 · ± 0.41 °C",
-    what: "Estimates battery temperature from electrical signals (voltage, current, power, time).",
-    why: "The real charging circuit has no temperature sensor. Instead of faking it, the model infers temperature from the data we do have — a 'virtual sensor'.",
+    metric: "MAE 0.58 °C · unseen cells",
+    what: "Estimates battery temperature during charging from the charging current (as C-rate), ambient temperature and two filtered I² heat terms that model thermal lag.",
+    why: "The real charging circuit has no temperature sensor. Trained on 1,183 real NASA charge cycles at 4, 24 and 43 °C ambient, with monotonic constraints so less current always means a lower predicted temperature — safe to use for closed-loop control.",
     use: "Drives the temperature gauge and the over-temp safety alert on the dashboard.",
   },
   {
     name: "Anomaly Detector",
     type: "Unsupervised · Isolation Forest",
     accent: "#8b5cf6",
-    metric: "flags ~2% outliers",
-    what: "Flags abnormal operating points (unusual voltage/current/power/temperature combos).",
-    why: "Unsupervised — it learns what 'normal' charging looks like and flags deviations, needing no labels. Useful for catching faults or foreign objects.",
+    metric: "flags ~0.5% of test points",
+    what: "Flags charging points where the battery heats more than expected for its charging current.",
+    why: "Unsupervised — it learns what 'normal' charging heat looks like from real charge cycles and flags deviations, needing no labels. Useful for catching thermal faults or foreign objects.",
     use: "Raises anomaly alerts and the anomaly status chip.",
   },
 ];
@@ -62,7 +62,7 @@ export default function Models() {
       <header>
         <h1 className="text-xl font-semibold tracking-tight text-foreground">ML Models</h1>
         <p className="text-sm text-muted-foreground">
-          Two models — regression and unsupervised — trained on the real NASA Li-ion battery dataset.
+          Two models — regression and unsupervised — trained on real NASA Li-ion battery charge cycles.
         </p>
       </header>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">

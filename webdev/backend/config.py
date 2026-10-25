@@ -20,7 +20,10 @@ MAX_READINGS = int(os.getenv("MAX_READINGS", "5000"))
 THINGSPEAK_CHANNEL = os.getenv("THINGSPEAK_CHANNEL", "")
 THINGSPEAK_READ_KEY = os.getenv("THINGSPEAK_READ_KEY", "")
 
-CELLS_IN_SERIES = int(os.getenv("CELLS_IN_SERIES", "105"))
-CELLS_IN_PARALLEL = int(os.getenv("CELLS_IN_PARALLEL", "5"))
+# Pack current is mapped to an equivalent NASA cell current at the same C-rate
+PACK_CAPACITY_AH = float(os.getenv("PACK_CAPACITY_AH", "100"))
+CELL_CAPACITY_AH = float(os.getenv("CELL_CAPACITY_AH", "2.0"))
+AMBIENT_C = float(os.getenv("AMBIENT_C", "25"))
+MAX_GAP_SECONDS = float(os.getenv("MAX_GAP_SECONDS", "120"))
 
 DEMO_CSV = os.path.join(BASE_DIR, "data", "demo_cycles.csv")

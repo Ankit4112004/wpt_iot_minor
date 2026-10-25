@@ -15,7 +15,7 @@ export default function TempGauge({ temp, limit = 38 }) {
         <div className="h-full rounded-full transition-all duration-700 ease-in-out" style={{ width: `${pct}%`, background: color }} />
         <div className="absolute top-0 w-[2px] h-full bg-red-500" style={{ left: `${(limit / (limit + 8)) * 100}%` }} />
       </div>
-      <div className="text-xs text-muted-foreground tracking-tight">predicted from voltage & current · limit {limit}°C</div>
+      <div className="text-xs text-muted-foreground tracking-tight">predicted from charging current & heat history · limit {limit}°C</div>
     </div>
   );
 }

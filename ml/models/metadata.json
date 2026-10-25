@@ -1,15 +1,22 @@
 {
-  "instant_features": [
-    "Voltage_measured",
-    "Current_measured",
-    "Power",
-    "Time"
+  "temp_features": [
+    "i_cell",
+    "ambient",
+    "heat_fast",
+    "heat_slow"
   ],
+  "temp_target": "temperature rise above ambient (C)",
+  "temp_monotonic": [
+    1,
+    0,
+    1,
+    1
+  ],
+  "tau_fast_s": 300.0,
+  "tau_slow_s": 1200.0,
   "anomaly_features": [
-    "Voltage_measured",
-    "Current_measured",
-    "Power",
-    "Temperature_measured"
+    "i_cell",
+    "temp_rise"
   ],
-  "dataset": "NASA Li-ion Battery Aging (B0005/06/07/18)"
+  "dataset": "NASA Li-ion Battery Aging - charge cycles (CC 1.5 A / CV 4.2 V), ambient 4/24/43 C"
 }

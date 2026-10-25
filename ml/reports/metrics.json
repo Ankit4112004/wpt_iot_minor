@@ -1,10 +1,28 @@
 {
   "temperature_soft_sensor": {
-    "r2": 0.977,
-    "mae_celsius": 0.4106
+    "r2_temperature": 0.997,
+    "r2_temperature_rise": 0.4987,
+    "mae_celsius": 0.5842,
+    "test_batteries": [
+      "B0029",
+      "B0038",
+      "B0042",
+      "B0044",
+      "B0047",
+      "B0049",
+      "B0050"
+    ]
+  },
+  "steady_state_temp_vs_charge_current": {
+    "100%": 29.465,
+    "80%": 28.146,
+    "60%": 26.986,
+    "40%": 26.739,
+    "20%": 26.331,
+    "0%": 25.273
   },
   "anomaly_detector": {
-    "flagged_rate": 0.0209,
+    "flagged_rate": 0.0051,
     "contamination_setting": 0.02
   }
 }

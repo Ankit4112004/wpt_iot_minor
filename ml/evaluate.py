@@ -2,37 +2,50 @@ import os
 import json
 
 import joblib
-from sklearn.model_selection import train_test_split
+import numpy as np
 from sklearn.metrics import r2_score, mean_absolute_error
 
 import features as F
+from train import split_by_battery
 
 REPORTS = os.path.join(os.path.dirname(__file__), "reports")
 MODELS_DIR = os.path.join(os.path.dirname(__file__), "models")
 os.makedirs(REPORTS, exist_ok=True)
 
-def evaluate_temperature(df):
-    X, y = F.build_instant_table(df)
-    Xtr, Xte, ytr, yte = train_test_split(X, y, test_size=0.2, random_state=42)
+def evaluate_temperature(df_test):
+    X, y = F.build_temp_table(df_test)
     m = joblib.load(os.path.join(MODELS_DIR, "temperature_regressor.pkl"))
-    pred = m.predict(Xte)
-    res = {"r2": round(float(r2_score(yte, pred)), 4),
-           "mae_celsius": round(float(mean_absolute_error(yte, pred)), 4)}
-    return res
+    pred = m.predict(X.values)
+    temp_true = y + df_test["ambient"]
+    temp_pred = pred + df_test["ambient"]
+    return {"r2_temperature": round(float(r2_score(temp_true, temp_pred)), 4),
+            "r2_temperature_rise": round(float(r2_score(y, pred)), 4),
+            "mae_celsius": round(float(mean_absolute_error(temp_true, temp_pred)), 4),
+            "test_batteries": sorted(df_test["battery"].unique().tolist())}
 
-def evaluate_anomaly(df):
-    feats = ["Voltage_measured", "Current_measured", "Power", "Temperature_measured"]
+def current_sensitivity(ambient=25.0):
+
+    m = joblib.load(os.path.join(MODELS_DIR, "temperature_regressor.pkl"))
+    out = {}
+    for pct in (100, 80, 60, 40, 20, 0):
+        i = 1.5 * pct / 100
+        h = i * i  # heat terms at steady state
+        out[f"{pct}%"] = round(float(ambient + m.predict(np.array([[i, ambient, h, h]]))[0]), 3)
+    return out
+
+def evaluate_anomaly(df_test):
     m = joblib.load(os.path.join(MODELS_DIR, "anomaly_detector.pkl"))
-    _, df_test = train_test_split(df, test_size=0.2, random_state=42)
-    flags = m.predict(df_test[feats])
+    flags = m.predict(df_test[F.ANOMALY_FEATURES].values)
     return {"flagged_rate": round(float((flags == -1).mean()), 4),
             "contamination_setting": 0.02}
 
 def main():
-    df = F.load_raw()
+    df = F.load_charge()
+    _, df_test = split_by_battery(df)
     metrics = {
-        "temperature_soft_sensor": evaluate_temperature(df),
-        "anomaly_detector": evaluate_anomaly(df),
+        "temperature_soft_sensor": evaluate_temperature(df_test),
+        "steady_state_temp_vs_charge_current": current_sensitivity(),
+        "anomaly_detector": evaluate_anomaly(df_test),
     }
     with open(os.path.join(REPORTS, "metrics.json"), "w") as f:
         json.dump(metrics, f, indent=2)

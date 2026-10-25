@@ -20,16 +20,15 @@ except FileNotFoundError:
     META = {}
     MODELS_LOADED = False
 
-def predict_temperature(voltage, current, time_in_cycle=0.0):
-    
-    power = voltage * current
-    X = np.array([[voltage, current, power, time_in_cycle]])
-    return round(float(_temp.predict(X)[0]), 3)
+def predict_temperature(i_cell, ambient, heat_fast, heat_slow):
 
-def detect_anomaly(voltage, current, temperature):
-    
-    power = voltage * current
-    X = np.array([[voltage, current, power, temperature]])
+    X = np.array([[i_cell, ambient, heat_fast, heat_slow]])
+    rise = float(_temp.predict(X)[0])
+    return round(ambient + rise, 3)
+
+def detect_anomaly(i_cell, temp_rise):
+
+    X = np.array([[i_cell, temp_rise]])
     label = int(_anom.predict(X)[0])
     score = float(_anom.score_samples(X)[0])
     return {"is_anomaly": label == -1, "score": round(score, 4)}
