@@ -7,6 +7,7 @@ from sqlalchemy import select, delete, func
 
 import config
 import replay
+import scenarios
 from db import SessionLocal, Reading, Prediction, Alert
 from inference import run_inference, HeatState
 
@@ -50,6 +51,9 @@ def _fetch_thingspeak():
 def _resolve_source():
     
     global _last_live_ts, _last_feed_time
+    # A running demo scenario always plays on the recorded telemetry, so it is repeatable
+    if scenarios.status() is not None:
+        return replay.next_reading(), "demo"
     fetched = _fetch_thingspeak()
     if fetched is not None:
         reading, feed_time = fetched
@@ -101,6 +105,9 @@ def _tick_once():
     if resolved is None:
         return
     reading_dict, source = resolved
+    ambient = config.AMBIENT_C
+    if source == "demo":
+        reading_dict, ambient, _ = scenarios.apply(reading_dict, ambient)
     i_cell, heat_fast, heat_slow = _cell_features(reading_dict, source)
 
     session = SessionLocal()
@@ -111,7 +118,7 @@ def _tick_once():
         session.add(r)
         session.flush()
 
-        pred = run_inference(reading_dict, i_cell, config.AMBIENT_C, heat_fast, heat_slow)
+        pred = run_inference(reading_dict, i_cell, ambient, heat_fast, heat_slow)
         session.add(Prediction(reading_id=r.id, **pred))
         _maybe_alert(session, r, pred)
 

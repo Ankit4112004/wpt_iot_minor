@@ -5,6 +5,7 @@ import MetricCard from "../components/MetricCard.jsx";
 import TempGauge from "../components/TempGauge.jsx";
 import AlertsPanel from "../components/AlertsPanel.jsx";
 import TimeChart from "../components/TimeChart.jsx";
+import DemoPanel from "../components/DemoPanel.jsx";
 
 const POLL_MS = 3000;
 
@@ -105,6 +106,11 @@ export default function Dashboard() {
     badgeColor = "text-red-500 border-red-500/20";
     dotColor = "bg-red-500";
     badgeText = `Last updated ${ago(totalSecondsAgo)}`;
+  } else if (latest?.source === "demo") {
+    badgeColor = "text-amber-500 border-amber-500/20";
+    dotColor = "bg-amber-500";
+    badgeText = `Demo: ${latest.scenario?.label ?? "scenario"}`;
+    dotPulse = true;
   } else if (latest?.source === "replay") {
     badgeColor = "text-amber-500 border-amber-500/20";
     dotColor = "bg-amber-500";
@@ -142,6 +148,10 @@ export default function Dashboard() {
       </header>
 
       <motion.div variants={container} initial="hidden" animate="show" className="space-y-6">
+        <motion.section variants={item}>
+          <DemoPanel active={latest?.scenario ?? null} onChange={() => fetchData(true)} />
+        </motion.section>
+
         <motion.section className="flex flex-wrap gap-3" variants={item}>
           <div className={`rounded-full border px-4 py-1.5 text-xs font-medium shadow-sm bg-card ${latest?.is_anomaly ? "text-amber-500 border-amber-500/20" : "text-emerald-500 border-emerald-500/20"}`}>
             {latest?.is_anomaly ? "Anomaly detected" : "No anomaly"}

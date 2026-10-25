@@ -1,13 +1,14 @@
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from apscheduler.schedulers.background import BackgroundScheduler
 from sqlalchemy import select, desc
 from sqlalchemy.orm import joinedload
 
 import config
+import scenarios
 from db import SessionLocal, init_db, Channel, Reading, Prediction, Alert
 from ingest import ensure_fresh, tick
 from inference import models_ready
@@ -63,7 +64,31 @@ def latest_reading():
             "power": round(r.power, 2), "soc": round(r.soc, 2),
             "predicted_temp": p.predicted_temp if p else None,
             "is_anomaly": p.is_anomaly if p else None,
+            "scenario": scenarios.status(),
         }
+
+@app.get("/api/demo/scenarios")
+def demo_scenarios():
+
+    return {"available": scenarios.catalogue(), "active": scenarios.status(),
+            "duration_seconds": scenarios.DURATION_S}
+
+@app.post("/api/demo/scenarios/{name}")
+def start_demo_scenario(name: str):
+
+    try:
+        scenarios.start(name)
+    except KeyError:
+        raise HTTPException(status_code=404, detail=f"Unknown scenario '{name}'")
+    ensure_fresh()
+    return {"active": scenarios.status()}
+
+@app.post("/api/demo/stop")
+def stop_demo_scenario():
+
+    scenarios.stop()
+    ensure_fresh()
+    return {"active": None}
 
 @app.get("/api/readings")
 def readings(limit: int = 100):
