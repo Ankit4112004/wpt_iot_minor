@@ -1,0 +1,10 @@
+{
+  "temperature_soft_sensor": {
+    "r2": 0.977,
+    "mae_celsius": 0.4106
+  },
+  "anomaly_detector": {
+    "flagged_rate": 0.0209,
+    "contamination_setting": 0.02
+  }
+}

@@ -1,0 +1,14 @@
+# Web framework
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+# Database (SQLAlchemy ORM; psycopg2 driver for Postgres/Neon in production)
+sqlalchemy==2.0.36
+psycopg2-binary==2.9.10
+# Background ingestion worker + HTTP client + env loading
+apscheduler==3.11.0
+requests==2.32.3
+python-dotenv==1.0.1
+# ML model loading (must match ml/ training versions for pickle compatibility)
+scikit-learn==1.4.2
+numpy==1.26.4
+joblib==1.3.2
