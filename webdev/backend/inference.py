@@ -6,10 +6,10 @@ sys.path.insert(0, ML_DIR)
 import predict as M  # type: ignore # noqa: E402
 from features import HeatState  # type: ignore # noqa: E402,F401
 
-def run_inference(i_cell, ambient, heat_fast, heat_slow):
+def run_inference(reading, i_cell, ambient, heat_fast, heat_slow):
 
     temp = M.predict_temperature(i_cell, ambient, heat_fast, heat_slow)
-    anom = M.detect_anomaly(i_cell, temp - ambient)
+    anom = M.detect_anomaly(reading["voltage"], reading["current"], reading["power"])
     return {
         "predicted_temp": temp,
         "is_anomaly": anom["is_anomaly"],

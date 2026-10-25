@@ -10,11 +10,11 @@ const MODELS = [
   },
   {
     name: "Anomaly Detector",
-    type: "Unsupervised · Isolation Forest",
+    type: "Unsupervised · One-Class SVM",
     accent: "#8b5cf6",
-    metric: "flags ~0.5% of test points",
-    what: "Flags charging points where the battery heats more than expected for its charging current.",
-    why: "Unsupervised — it learns what 'normal' charging heat looks like from real charge cycles and flags deviations, needing no labels. Useful for catching thermal faults or foreign objects.",
+    metric: "0% false alarms · 71/71 glitches",
+    what: "Flags readings outside the charger's normal voltage–current–power operating envelope, such as coupling loss from a misaligned pad, overcurrent, pack voltage sag or corrupted telemetry.",
+    why: "Unsupervised — it learns 'normal' from 526 readings of our own Simulink WPT system logged to ThingSpeak, needing no fault labels. Tested on held-out normal data and on 71 real glitch readings from the channel.",
     use: "Raises anomaly alerts and the anomaly status chip.",
   },
 ];
@@ -62,7 +62,7 @@ export default function Models() {
       <header>
         <h1 className="text-xl font-semibold tracking-tight text-foreground">ML Models</h1>
         <p className="text-sm text-muted-foreground">
-          Two models — regression and unsupervised — trained on real NASA Li-ion battery charge cycles.
+          Two models — a temperature soft-sensor trained on real NASA Li-ion charge cycles, and an anomaly detector trained on our own WPT telemetry.
         </p>
       </header>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">

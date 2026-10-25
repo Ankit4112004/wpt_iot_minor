@@ -2,8 +2,11 @@ import json
 import os
 
 import joblib
-from sklearn.ensemble import HistGradientBoostingRegressor, IsolationForest
-from sklearn.model_selection import GroupShuffleSplit
+from sklearn.ensemble import HistGradientBoostingRegressor
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import StandardScaler
+from sklearn.svm import OneClassSVM
+from sklearn.model_selection import GroupShuffleSplit, train_test_split
 
 import features as F
 
@@ -15,6 +18,13 @@ def split_by_battery(df):
     gss = GroupShuffleSplit(n_splits=1, test_size=0.2, random_state=42)
     tr, te = next(gss.split(df, groups=df["battery"]))
     return df.iloc[tr], df.iloc[te]
+
+def split_telemetry(clean):
+
+    return train_test_split(clean, test_size=0.2, random_state=42)
+
+# Expected share of normal readings outside the learned boundary
+ANOMALY_NU = 0.02
 
 def make_temp_model():
     return HistGradientBoostingRegressor(
@@ -41,14 +51,14 @@ def main():
     joblib.dump(temp_model, os.path.join(MODELS_DIR, "temperature_regressor.pkl"))
     print(f"  features: {F.TEMP_FEATURES} -> temperature rise above ambient (C)")
 
-    print("\n[2/2] Training anomaly detector (unsupervised, charging) ...")
-    anom_model = IsolationForest(
-        n_estimators=120,
-        contamination=0.02,
-        random_state=42,
-        n_jobs=-1,
-    )
-    anom_model.fit(df_train[F.ANOMALY_FEATURES].values)
+    print("\n[2/2] Training anomaly detector (One-Class SVM, WPT telemetry) ...")
+    clean, _ = F.load_telemetry()
+    tel_train, _ = split_telemetry(clean)
+    print(f"  {len(clean)} clean Simulink WPT readings from ThingSpeak, {len(tel_train)} for training")
+    # One-Class SVM also flags values far outside the training range,
+    # where an Isolation Forest only sees the edge of its last split
+    anom_model = make_pipeline(StandardScaler(), OneClassSVM(nu=ANOMALY_NU, gamma=0.01))
+    anom_model.fit(tel_train[F.ANOMALY_FEATURES].values)
     joblib.dump(anom_model, os.path.join(MODELS_DIR, "anomaly_detector.pkl"))
     print(f"  features: {F.ANOMALY_FEATURES} -> anomaly score")
 
@@ -60,6 +70,7 @@ def main():
         "tau_slow_s": F.TAU_SLOW,
         "anomaly_features": F.ANOMALY_FEATURES,
         "dataset": "NASA Li-ion Battery Aging - charge cycles (CC 1.5 A / CV 4.2 V), ambient 4/24/43 C",
+        "anomaly_dataset": "Simulink WPT telemetry, ThingSpeak channel 3311497",
     }
     with open(os.path.join(MODELS_DIR, "metadata.json"), "w") as f:
         json.dump(meta, f, indent=2)

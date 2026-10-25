@@ -26,9 +26,9 @@ def predict_temperature(i_cell, ambient, heat_fast, heat_slow):
     rise = float(_temp.predict(X)[0])
     return round(ambient + rise, 3)
 
-def detect_anomaly(i_cell, temp_rise):
+def detect_anomaly(voltage, current, power):
 
-    X = np.array([[i_cell, temp_rise]])
+    X = np.array([[voltage, current, power]])
     label = int(_anom.predict(X)[0])
     score = float(_anom.score_samples(X)[0])
     return {"is_anomaly": label == -1, "score": round(score, 4)}

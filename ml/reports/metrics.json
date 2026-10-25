@@ -22,7 +22,14 @@
     "0%": 25.273
   },
   "anomaly_detector": {
-    "flagged_rate": 0.0051,
-    "contamination_setting": 0.02
+    "false_alarm_rate_on_held_out_normal": 0.0,
+    "real_glitches_detected": "71/71",
+    "fault_cases_detected": {
+      "coupling loss (misaligned pad)": true,
+      "overcurrent": true,
+      "pack voltage sag": true,
+      "power sensor mismatch": true
+    },
+    "nu_setting": 0.02
   }
 }

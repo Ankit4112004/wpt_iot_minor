@@ -6,7 +6,7 @@ import numpy as np
 from sklearn.metrics import r2_score, mean_absolute_error
 
 import features as F
-from train import split_by_battery
+from train import split_by_battery, split_telemetry, ANOMALY_NU
 
 REPORTS = os.path.join(os.path.dirname(__file__), "reports")
 MODELS_DIR = os.path.join(os.path.dirname(__file__), "models")
@@ -33,11 +33,26 @@ def current_sensitivity(ambient=25.0):
         out[f"{pct}%"] = round(float(ambient + m.predict(np.array([[i, ambient, h, h]]))[0]), 3)
     return out
 
-def evaluate_anomaly(df_test):
+# Hand-made fault cases around the normal operating point (390 V, -13 A, 5.3 kW)
+FAULT_CASES = {
+    "coupling loss (misaligned pad)": (390.0, -3.0, 1170.0),
+    "overcurrent": (390.5, -30.0, 11700.0),
+    "pack voltage sag": (360.0, -13.0, 4680.0),
+    "power sensor mismatch": (390.0, -13.0, 9000.0),
+}
+
+def evaluate_anomaly():
     m = joblib.load(os.path.join(MODELS_DIR, "anomaly_detector.pkl"))
-    flags = m.predict(df_test[F.ANOMALY_FEATURES].values)
-    return {"flagged_rate": round(float((flags == -1).mean()), 4),
-            "contamination_setting": 0.02}
+    clean, glitches = F.load_telemetry()
+    _, tel_test = split_telemetry(clean)
+    normal_flags = m.predict(tel_test[F.ANOMALY_FEATURES].values) == -1
+    # The backend reads missing ThingSpeak fields as 0, so evaluate glitches the same way
+    glitch_flags = m.predict(glitches[F.ANOMALY_FEATURES].fillna(0).values) == -1
+    faults = {name: bool(m.predict(np.array([x]))[0] == -1) for name, x in FAULT_CASES.items()}
+    return {"false_alarm_rate_on_held_out_normal": round(float(normal_flags.mean()), 4),
+            "real_glitches_detected": f"{int(glitch_flags.sum())}/{len(glitches)}",
+            "fault_cases_detected": faults,
+            "nu_setting": ANOMALY_NU}
 
 def main():
     df = F.load_charge()
@@ -45,7 +60,7 @@ def main():
     metrics = {
         "temperature_soft_sensor": evaluate_temperature(df_test),
         "steady_state_temp_vs_charge_current": current_sensitivity(),
-        "anomaly_detector": evaluate_anomaly(df_test),
+        "anomaly_detector": evaluate_anomaly(),
     }
     with open(os.path.join(REPORTS, "metrics.json"), "w") as f:
         json.dump(metrics, f, indent=2)

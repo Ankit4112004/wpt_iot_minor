@@ -15,8 +15,10 @@
   "tau_fast_s": 300.0,
   "tau_slow_s": 1200.0,
   "anomaly_features": [
-    "i_cell",
-    "temp_rise"
+    "voltage",
+    "current",
+    "power"
   ],
-  "dataset": "NASA Li-ion Battery Aging - charge cycles (CC 1.5 A / CV 4.2 V), ambient 4/24/43 C"
+  "dataset": "NASA Li-ion Battery Aging - charge cycles (CC 1.5 A / CV 4.2 V), ambient 4/24/43 C",
+  "anomaly_dataset": "Simulink WPT telemetry, ThingSpeak channel 3311497"
 }

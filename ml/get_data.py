@@ -1,4 +1,5 @@
 import glob
+import json
 import io
 import os
 import sys
@@ -89,34 +90,44 @@ def build_charge_csv():
           f"-> {F.CHARGE_CSV}")
 
 DEMO_CSV = os.path.join(HERE, "..", "webdev", "backend", "data", "demo_cycles.csv")
-# Defaults of the backend config: 105 cells in series, 100 Ah pack built from 2 Ah-class cells
-PACK_SERIES = 105
-PACK_CURRENT_SCALE = 100 / 2.0
-DEMO_SOC_START = 5.0
+# Readings further apart than this belong to different simulation runs
+SESSION_GAP_S = 600
 
-def build_demo_replay(battery="B0005", n_cycles=2, ambient=24.0):
+def fetch_telemetry():
 
-    df = pd.read_csv(F.CHARGE_CSV)
-    df = df[(df.battery == battery) & (df.ambient == ambient)]
-    parts = []
-    for k, (_, c) in enumerate(list(df.groupby("cycle"))[:n_cycles]):
-        dt = c.time.diff().fillna(0.0)
-        charged_ah = (c.i_cell * dt).cumsum() / 3600.0
-        parts.append(pd.DataFrame({
-            "voltage": c.v_cell * PACK_SERIES,
-            "current": -c.i_cell * PACK_CURRENT_SCALE,
-            "power": c.v_cell * PACK_SERIES * c.i_cell * PACK_CURRENT_SCALE,
-            "time_in_cycle": c.time,
-            "temperature_measured": c.temperature,
-            "soc": (DEMO_SOC_START + charged_ah / 2.0 * 100).clip(upper=100.0),
-            "cycle_index": k,
-        }))
-    demo = pd.concat(parts, ignore_index=True).round(4)
-    demo.insert(0, "seq", range(len(demo)))
+    channel = os.environ["THINGSPEAK_CHANNEL"]
+    key = os.environ["THINGSPEAK_READ_KEY"]
+    url = f"https://api.thingspeak.com/channels/{channel}/feeds.json?api_key={key}&results=8000"
+    with urllib.request.urlopen(url, timeout=30) as r:
+        feeds = pd.DataFrame(json.load(r)["feeds"])
+    feeds = feeds.rename(columns={"field1": "power", "field2": "current",
+                                  "field3": "voltage", "field4": "soc"})
+    feeds[["created_at", "voltage", "current", "power", "soc"]].to_csv(F.TELEMETRY_CSV, index=False)
+    print(f"Wrote {len(feeds)} ThingSpeak readings -> {F.TELEMETRY_CSV}")
+
+def build_demo_replay():
+
+    clean, _ = F.load_telemetry()
+    t = (clean.created_at - clean.created_at.iloc[0]).dt.total_seconds()
+    new_session = t.diff().fillna(SESSION_GAP_S + 1) > SESSION_GAP_S
+    session = new_session.cumsum() - 1
+    start = t.groupby(session).transform("first")
+    demo = pd.DataFrame({
+        "seq": range(len(clean)),
+        "voltage": clean.voltage,
+        "current": clean.current,
+        "power": clean.power,
+        "time_in_cycle": t - start,
+        "soc": clean.soc,
+        "cycle_index": session,
+    }).round(4)
     demo.to_csv(DEMO_CSV, index=False)
-    print(f"Wrote {len(demo)} pack-scale replay rows -> {DEMO_CSV}")
+    print(f"Wrote {len(demo)} replay rows from {session.max() + 1} recorded Simulink runs -> {DEMO_CSV}")
 
 def main():
+    if "--telemetry" in sys.argv:
+        fetch_telemetry()
+        return
     if "--demo" in sys.argv:
         build_demo_replay()
         return

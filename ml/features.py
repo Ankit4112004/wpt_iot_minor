@@ -6,6 +6,8 @@ import pandas as pd
 
 HERE = os.path.dirname(__file__)
 CHARGE_CSV = os.path.join(HERE, "data", "nasa_charge_30s.csv.gz")
+# Snapshot of the Simulink WPT telemetry logged to ThingSpeak channel 3311497
+TELEMETRY_CSV = os.path.join(HERE, "data", "wpt_telemetry.csv")
 
 # Thermal time constants (s) of the two exponentially filtered I^2 heat terms
 TAU_FAST = 300.0
@@ -17,8 +19,9 @@ TEMP_FEATURES = ["i_cell", "ambient", "heat_fast", "heat_slow"]
 # Predicted temperature rise may only increase with current and accumulated heat
 TEMP_MONOTONIC = [1, 0, 1, 1]
 
-# "Is the battery heating more than it should for this charging current?"
-ANOMALY_FEATURES = ["i_cell", "temp_rise"]
+# Normal electrical operating envelope of this charger, learned from its own telemetry.
+# Temperature is left out: it is predicted from current, so it cannot reveal a fault.
+ANOMALY_FEATURES = ["voltage", "current", "power"]
 
 def ewma_step(prev, value, dt, tau):
 
@@ -62,3 +65,12 @@ def load_charge():
 def build_temp_table(df):
 
     return df[TEMP_FEATURES].copy(), df["temp_rise"].copy()
+
+def load_telemetry():
+
+    df = pd.read_csv(TELEMETRY_CSV, parse_dates=["created_at"])
+    # Charging readings with all fields present (Simscape: negative current = charging).
+    # The rest are set-up/test writes and wrong-field glitches, kept for evaluation.
+    valid = (df[["voltage", "current", "power", "soc"]].notna().all(axis=1)
+             & (df["current"] < 0) & df["voltage"].between(300, 425) & (df["power"] > 100))
+    return df[valid].reset_index(drop=True), df[~valid].reset_index(drop=True)

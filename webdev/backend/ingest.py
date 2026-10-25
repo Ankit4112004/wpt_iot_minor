@@ -111,7 +111,7 @@ def _tick_once():
         session.add(r)
         session.flush()
 
-        pred = run_inference(i_cell, config.AMBIENT_C, heat_fast, heat_slow)
+        pred = run_inference(reading_dict, i_cell, config.AMBIENT_C, heat_fast, heat_slow)
         session.add(Prediction(reading_id=r.id, **pred))
         _maybe_alert(session, r, pred)
 
